@@ -1,0 +1,23 @@
+{
+  "name": "@profullstack/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The commands every Profullstack CLI shares: `update` and `uninstall`, done the same way the tool was installed (curl installer, npm, bun, pnpm or yarn). No dependencies.",
+  "keywords": ["cli", "update", "self-update", "uninstall", "installer", "npm", "bun"],
+  "repository": { "type": "git", "url": "git+https://github.com/profullstack/cli.git" },
+  "homepage": "https://github.com/profullstack/cli#readme",
+  "bugs": { "url": "https://github.com/profullstack/cli/issues" },
+  "license": "MIT",
+  "author": "Profullstack, Inc.",
+  "exports": {
+    ".": { "types": "./index.d.ts", "import": "./src/index.js" },
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "files": ["src", "index.d.ts", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test"
+  }
+}
