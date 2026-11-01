@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "The commands every Profullstack CLI shares: `update` and `uninstall`, done the same way the tool was installed (curl installer, npm, bun, pnpm or yarn). No dependencies.",
   "keywords": ["cli", "update", "self-update", "uninstall", "installer", "npm", "bun"],
@@ -11,10 +11,11 @@
   "author": "Profullstack, Inc.",
   "exports": {
     ".": { "types": "./index.d.ts", "import": "./src/index.js" },
+    "./auto-update": { "types": "./auto-update.d.ts", "import": "./src/auto-update.js" },
     "./package.json": "./package.json"
   },
   "types": "./index.d.ts",
-  "files": ["src", "index.d.ts", "README.md", "LICENSE"],
+  "files": ["src", "index.d.ts", "auto-update.d.ts", "README.md", "LICENSE"],
   "sideEffects": false,
   "engines": { "node": ">=18" },
   "scripts": {
