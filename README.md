@@ -19,8 +19,23 @@ It looks at where the running copy really lives and picks the matching tool:
 | `yarn global add` | `yarn global add pkg@latest` | `yarn global remove pkg` |
 
 A copy it cannot place (a project's `node_modules`, a source checkout) is never
-touched: it prints the command to run instead. `update` first asks the npm registry
-for the latest version and does nothing when you already have it (`--force` reinstalls).
+touched: it prints the command to run instead. `update` checks the registry or a
+configured version feed before running an installer, skips an equal version, and
+refuses to downgrade. If the feed is unavailable or malformed, it stops without
+reinstalling. `--force` reinstalls only when the installed version is not newer.
+
+Install an hourly per-user update check from an installer after the CLI wrapper is
+in place:
+
+```js
+import { installAutoUpdate } from "@profullstack/cli/auto-update";
+
+await installAutoUpdate({ name: "readm3", command: "/home/me/.local/bin/readm3" });
+```
+
+The updater uses systemd user timers or cron on Linux, launchd on macOS, and Task
+Scheduler on Windows. It runs `readm3 update --quiet`; removing a CLI can call
+`removeAutoUpdate(name)` to remove its scheduled check.
 
 ## Use
 
@@ -33,6 +48,7 @@ export async function main(argv = process.argv.slice(2)) {
     package: "@profullstack/readm3",
     version: VERSION,                            // the running version
     installer: "https://readm3.com/install.sh",  // optional curl installer
+    installerCommand: "update",                 // pass `update` to the install script
     installerArgs: () => desktopInstalled() ? ["--desktop"] : [], // flags to keep on update
   })) return;
   // ...the tool's own commands
@@ -43,6 +59,9 @@ export async function main(argv = process.argv.slice(2)) {
 and refuses to uninstall without a terminal unless `--yes` is given. Put
 `lifecycleUsage(name)` in your `--help`.
 
-Also exported: `detectInstall`, `lifecycleCommand`, `latestVersion`, `compareVersions`.
+For a version feed outside npm, pass `latestVersion: () => fetchVersion(url)`.
+Also exported: `detectInstall`, `lifecycleCommand`, `latestVersion`, `fetchVersion`,
+`compareVersions`. The `@profullstack/cli/auto-update` entry exports
+`installAutoUpdate`, `removeAutoUpdate`, and `autoUpdatePaths`.
 
 No dependencies. Node 18+ and Bun. MIT.

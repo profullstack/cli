@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compareVersions, detectInstall, lifecycle, lifecycleCommand, lifecycleUsage } from "../src/index.js";
+import { compareVersions, detectInstall, fetchVersion, lifecycle, lifecycleCommand, lifecycleUsage } from "../src/index.js";
+import { autoUpdatePaths } from "../src/auto-update.js";
 
 const npmRoot = () => "/usr/lib/node_modules";
 const detect = (script, exists = () => false) => detectInstall({ name: "readm3", script, exists, npmRoot });
@@ -28,6 +29,8 @@ test("update and uninstall use the same tool that installed it", () => {
   assert.deepEqual(lifecycleCommand("uninstall", { method: "installer", share: "/s/readm3" }, opts), ["sh", "/s/readm3/uninstall.sh"]);
   assert.deepEqual(lifecycleCommand("update", { method: "installer", share: "/opt/tools/share/readm3" }, { ...opts, installerArgs: ["--desktop"] }),
     ["sh", "-c", "curl -fsSL https://readm3.com/install.sh | INSTALL_PREFIX='/opt/tools' sh -s -- '--desktop'"]);
+  assert.deepEqual(lifecycleCommand("update", { method: "installer", share: "/opt/tools/share/readm3" }, { ...opts, installerCommand: "update" }),
+    ["sh", "-c", "curl -fsSL https://readm3.com/install.sh | INSTALL_PREFIX='/opt/tools' sh -s -- 'update'"]);
   assert.equal(lifecycleCommand("update", { method: "installer", share: "/s" }, { package: "x" }), undefined);
   assert.equal(lifecycleCommand("update", { method: "unknown" }, opts), undefined);
 });
@@ -37,6 +40,15 @@ test("versions compare numerically", () => {
   assert.equal(compareVersions("0.9.0", "0.13.0"), -1);
   assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
   assert.equal(compareVersions("1.0.0-beta.1", "1.0.0"), -1);
+  assert.equal(compareVersions("1.0.0", "1.0.0-beta.2"), 1);
+  assert.equal(compareVersions("not-a-version", "1.0.0"), null);
+});
+
+test("fetchVersion accepts package metadata and bare tags but rejects failed feeds", async () => {
+  const response = (body, ok = true) => ({ ok, text: async () => body });
+  assert.equal(await fetchVersion("https://example.test", { fetchImpl: async () => response('{"tag_name":"v1.2.3"}') }), "1.2.3");
+  assert.equal(await fetchVersion("https://example.test", { fetchImpl: async () => response("2.3.4") }), "2.3.4");
+  assert.equal(await fetchVersion("https://example.test", { fetchImpl: async () => response("bad", false) }), undefined);
 });
 
 function io() {
@@ -64,6 +76,33 @@ test("a copy it cannot place says how to update by hand", async () => {
   await lifecycle(["update", "--force"], { name: "readm3", package: "@profullstack/readm3", installer: "https://readm3.com/install.sh", io: a.io, detect: () => ({ method: "unknown" }) });
   assert.match(a.out.join(""), /npm install -g @profullstack\/readm3@latest, or: curl -fsSL https:\/\/readm3.com\/install.sh \| sh/);
   process.exitCode = 0;
+});
+
+test("update fails closed when its version feed is unavailable", async () => {
+  const a = io();
+  await lifecycle(["update", "--force"], {
+    name: "readm3", package: "@profullstack/readm3", version: "1.0.0", io: a.io,
+    latestVersion: async () => undefined, detect: () => ({ method: "npm" }),
+  });
+  assert.match(a.out.join(""), /could not check the latest readm3 version; installer was not run/);
+  process.exitCode = 0;
+});
+
+test("update never downgrades and skips a matching version", async () => {
+  const a = io();
+  await lifecycle(["update", "--force"], {
+    name: "readm3", package: "@profullstack/readm3", version: "2.0.0", io: a.io,
+    latestVersion: async () => "1.9.0", detect: () => ({ method: "npm" }),
+  });
+  assert.match(a.out.join(""), /refusing to downgrade/);
+  assert.doesNotMatch(a.out.join(""), /Updating readm3 with/);
+  process.exitCode = 0;
+});
+
+test("auto-update paths are per-user on supported platforms", () => {
+  assert.match(autoUpdatePaths("coinpay", { home: "/home/a", platform: "linux" }).timer, /coinpay-auto-update\.timer$/);
+  assert.match(autoUpdatePaths("coinpay", { home: "/home/a", platform: "darwin" }).plist, /com\.profullstack\.coinpay\.auto-update\.plist$/);
+  assert.equal(autoUpdatePaths("coinpay", { home: "/home/a", platform: "win32" }).task, "Profullstack-coinpay-AutoUpdate");
 });
 
 test("usage names both commands", () => {
